@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+python-multipart
+Pillow
+img2pdf
+PyMuPDF
+python-docx
+reportlab
