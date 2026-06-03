@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF Converter & Compressor</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --card: #16161f;
+    --border: #2a2a3a;
+    --accent: #6c63ff;
+    --accent2: #ff6584;
+    --accent3: #43e97b;
+    --text: #f0f0f8;
+    --muted: #888899;
+    --radius: 16px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Ambient background */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -30%;
+    left: -20%;
+    width: 70vw;
+    height: 70vw;
+    background: radial-gradient(circle, rgba(108,99,255,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -20%;
+    right: -10%;
+    width: 50vw;
+    height: 50vw;
+    background: radial-gradient(circle, rgba(255,101,132,0.06) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 60px 24px 80px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+
+  .logo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(108,99,255,0.15);
+    border: 1px solid rgba(108,99,255,0.3);
+    border-radius: 100px;
+    padding: 6px 16px;
+    font-size: 13px;
+    color: #a09cff;
+    margin-bottom: 24px;
+    letter-spacing: 0.04em;
+  }
+  .logo-badge span { font-size: 18px; }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    margin-bottom: 14px;
+  }
+  h1 em {
+    font-style: normal;
+    background: linear-gradient(135deg, #6c63ff, #ff6584);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 16px;
+    font-weight: 300;
+    line-height: 1.6;
+  }
+
+  /* Supported formats pills */
+  .formats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 20px;
+  }
+  .fmt-pill {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 4px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+  .fmt-pill.arrow { color: #6c63ff; background: transparent; border: none; font-size: 16px; }
+
+  /* Main card */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 36px;
+    margin-bottom: 20px;
+  }
+
+  /* Drop zone */
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    background: rgba(255,255,255,0.01);
+  }
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--accent);
+    background: rgba(108,99,255,0.06);
+  }
+  .dropzone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+
+  .drop-icon {
+    width: 56px; height: 56px;
+    background: rgba(108,99,255,0.12);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+    font-size: 26px;
+  }
+  .drop-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .drop-sub { font-size: 13px; color: var(--muted); }
+
+  /* File preview */
+  .file-preview {
+    display: none;
+    align-items: center;
+    gap: 14px;
+    background: rgba(108,99,255,0.08);
+    border: 1px solid rgba(108,99,255,0.25);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-top: 16px;
+  }
+  .file-preview.show { display: flex; }
+  .file-icon { font-size: 28px; }
+  .file-info { flex: 1; min-width: 0; }
+  .file-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-size { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .file-remove {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 20px; padding: 4px; border-radius: 6px; transition: color 0.2s;
+  }
+  .file-remove:hover { color: var(--accent2); }
+
+  /* Size options */
+  .section-label {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    margin-top: 28px;
+  }
+
+  .size-options {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  @media (max-width: 480px) { .size-options { grid-template-columns: repeat(2, 1fr); } }
+
+  .size-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 10px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+  }
+  .size-btn:hover { border-color: var(--accent); background: rgba(108,99,255,0.08); }
+  .size-btn.active {
+    border-color: var(--accent);
+    background: rgba(108,99,255,0.15);
+    color: #a09cff;
+  }
+  .size-val {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    display: block;
+  }
+  .size-unit { font-size: 11px; color: var(--muted); margin-top: 2px; display: block; }
+
+  /* Convert button */
+  .btn-convert {
+    width: 100%;
+    margin-top: 28px;
+    padding: 16px;
+    background: linear-gradient(135deg, #6c63ff, #8b5cf6);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-convert:hover { transform: translateY(-1px); box-shadow: 0 8px 32px rgba(108,99,255,0.4); }
+  .btn-convert:active { transform: translateY(0); }
+  .btn-convert:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* Progress */
+  .progress-wrap { display: none; margin-top: 20px; }
+  .progress-wrap.show { display: block; }
+  .progress-bar-bg {
+    height: 4px;
+    background: var(--border);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #6c63ff, #ff6584);
+    border-radius: 100px;
+    width: 0%;
+    transition: width 0.3s;
+    animation: shimmer 1.5s infinite;
+  }
+  @keyframes shimmer {
+    0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; }
+  }
+  .progress-text { font-size: 13px; color: var(--muted); margin-top: 10px; text-align: center; }
+
+  /* Result */
+  .result-card {
+    display: none;
+    background: rgba(67,233,123,0.06);
+    border: 1px solid rgba(67,233,123,0.2);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-top: 20px;
+  }
+  .result-card.show { display: block; }
+  .result-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+  }
+  .result-icon { font-size: 28px; }
+  .result-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; }
+  .result-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  .stats-row {
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px;
+    align-items: center; margin-bottom: 20px;
+  }
+  .stat-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    text-align: center;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .stat-val { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; margin-top: 4px; }
+  .stat-val.red { color: var(--accent2); }
+  .stat-val.green { color: var(--accent3); }
+  .arrow-mid { font-size: 22px; color: var(--accent); text-align: center; }
+
+  .reduction-badge {
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 14px;
+    color: var(--accent3);
+    font-weight: 500;
+  }
+
+  .btn-download {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%;
+    padding: 14px;
+    background: var(--accent3);
+    color: #0a1a0f;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .btn-download:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(67,233,123,0.35); }
+
+  .btn-reset {
+    display: block; width: 100%; margin-top: 12px;
+    background: none; border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px; color: var(--muted); cursor: pointer; font-family: 'DM Sans', sans-serif;
+    font-size: 14px; transition: all 0.2s;
+  }
+  .btn-reset:hover { border-color: var(--muted); color: var(--text); }
+
+  /* Error */
+  .error-msg {
+    display: none;
+    background: rgba(255,101,132,0.08);
+    border: 1px solid rgba(255,101,132,0.25);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-top: 16px;
+    font-size: 14px;
+    color: #ff8fa3;
+  }
+  .error-msg.show { display: block; }
+
+  /* How it works */
+  .how-section { margin-top: 40px; }
+  .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 500px) { .how-grid { grid-template-columns: 1fr; } }
+  .how-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+  }
+  .how-num {
+    width: 32px; height: 32px;
+    background: rgba(108,99,255,0.15);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 12px;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: #a09cff;
+  }
+  .how-title { font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+  .how-text { font-size: 12px; color: var(--muted); line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <header>
+    <div class="logo-badge"><span>⚡</span> File Converter & Compressor</div>
+    <h1>Convert anything<br>to <em>compressed PDF</em></h1>
+    <p class="subtitle">Upload images or documents — get a compressed PDF instantly.<br>No uploads to third-party servers. Runs locally.</p>
+    <div class="formats">
+      <span class="fmt-pill">PNG</span>
+      <span class="fmt-pill">JPG</span>
+      <span class="fmt-pill">JPEG</span>
+      <span class="fmt-pill">DOCX</span>
+      <span class="fmt-pill">PDF</span>
+      <span class="fmt-pill arrow">→</span>
+      <span class="fmt-pill" style="color:#43e97b;border-color:rgba(67,233,123,0.3);background:rgba(67,233,123,0.06)">PDF ✓</span>
+    </div>
+  </header>
+
+  <div class="card">
+    <!-- Drop zone -->
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" accept=".png,.jpg,.jpeg,.pdf,.docx">
+      <div class="drop-icon">📄</div>
+      <div class="drop-title">Drop your file here</div>
+      <div class="drop-sub">or click to browse — PNG, JPG, JPEG, DOCX, PDF</div>
+    </div>
+
+    <div class="file-preview" id="filePreview">
+      <div class="file-icon" id="previewIcon">📄</div>
+      <div class="file-info">
+        <div class="file-name" id="previewName"></div>
+        <div class="file-size" id="previewSize"></div>
+      </div>
+      <button class="file-remove" id="removeFile" title="Remove">✕</button>
+    </div>
+
+    <!-- Size options -->
+    <div class="section-label">Target output size</div>
+    <div class="size-options">
+      <button class="size-btn" data-val="50" onclick="selectSize(this)">
+        <span class="size-val">50</span><span class="size-unit">KB max</span>
+      </button>
+      <button class="size-btn active" data-val="100" onclick="selectSize(this)">
+        <span class="size-val">100</span><span class="size-unit">KB max</span>
+      </button>
+      <button class="size-btn" data-val="500" onclick="selectSize(this)">
+        <span class="size-val">500</span><span class="size-unit">KB max</span>
+      </button>
+      <button class="size-btn" data-val="0" onclick="selectSize(this)">
+        <span class="size-val">Max</span><span class="size-unit">quality</span>
+      </button>
+    </div>
+
+    <button class="btn-convert" id="convertBtn" onclick="convertFile()" disabled>
+      ⚡ Convert to PDF
+    </button>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
+      <div class="progress-text" id="progressText">Processing your file…</div>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <!-- Result -->
+  <div class="result-card" id="resultCard">
+    <div class="result-header">
+      <div class="result-icon">✅</div>
+      <div>
+        <div class="result-title">Conversion complete!</div>
+        <div class="result-sub" id="resultFilename"></div>
+      </div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-label">Original</div>
+        <div class="stat-val red" id="origSize">—</div>
+      </div>
+      <div class="arrow-mid">→</div>
+      <div class="stat-box">
+        <div class="stat-label">Output</div>
+        <div class="stat-val green" id="finalSize">—</div>
+      </div>
+    </div>
+    <div class="reduction-badge" id="reductionBadge"></div>
+    <a class="btn-download" id="downloadBtn" href="#" download>
+      ⬇ Download PDF
+    </a>
+    <button class="btn-reset" onclick="resetAll()">Convert another file</button>
+  </div>
+
+  <!-- How it works -->
+  <div class="how-section">
+    <div class="section-label" style="text-align:center;margin-bottom:20px">How it works</div>
+    <div class="how-grid">
+      <div class="how-card">
+        <div class="how-num">1</div>
+        <div class="how-title">Upload your file</div>
+        <div class="how-text">Drop a PNG, JPG, DOCX, or existing PDF onto the converter</div>
+      </div>
+      <div class="how-card">
+        <div class="how-num">2</div>
+        <div class="how-title">Choose target size</div>
+        <div class="how-text">Pick 50 KB, 100 KB, 500 KB, or keep maximum quality</div>
+      </div>
+      <div class="how-card">
+        <div class="how-num">3</div>
+        <div class="how-title">Download PDF</div>
+        <div class="how-text">Get your compressed PDF in seconds, processed on your machine</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let selectedFile = null;
+  let selectedSize = "100";
+
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+  document.getElementById('removeFile').addEventListener('click', e => { e.stopPropagation(); resetFile(); });
+
+  function handleFile(file) {
+    const allowed = ['image/png','image/jpeg','application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (!allowed.includes(file.type) && !file.name.match(/\.(png|jpe?g|pdf|docx)$/i)) {
+      showError('Unsupported file type. Please upload PNG, JPG, JPEG, DOCX, or PDF.');
+      return;
+    }
+    selectedFile = file;
+    const icons = {'image/png':'🖼️','image/jpeg':'🖼️','application/pdf':'📕',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document':'📝'};
+    document.getElementById('previewIcon').textContent = icons[file.type] || '📄';
+    document.getElementById('previewName').textContent = file.name;
+    document.getElementById('previewSize').textContent = formatSize(file.size);
+    document.getElementById('filePreview').classList.add('show');
+    document.getElementById('convertBtn').disabled = false;
+    hideError();
+  }
+
+  function resetFile() {
+    selectedFile = null;
+    fileInput.value = '';
+    document.getElementById('filePreview').classList.remove('show');
+    document.getElementById('convertBtn').disabled = true;
+    hideError();
+  }
+
+  function selectSize(btn) {
+    document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedSize = btn.dataset.val;
+  }
+
+  async function convertFile() {
+    if (!selectedFile) return;
+    const btn = document.getElementById('convertBtn');
+    btn.disabled = true;
+    showProgress('Uploading file…', 20);
+    hideError();
+    document.getElementById('resultCard').classList.remove('show');
+
+    const fd = new FormData();
+    fd.append('file', selectedFile);
+    fd.append('target_size', selectedSize);
+
+    try {
+      showProgress('Converting & compressing…', 60);
+      const resp = await fetch('/convert', { method: 'POST', body: fd });
+      showProgress('Finalizing…', 90);
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.detail || 'Conversion failed');
+
+      showProgress('Done!', 100);
+      setTimeout(() => {
+        document.getElementById('progressWrap').classList.remove('show');
+        showResult(data);
+      }, 400);
+    } catch (err) {
+      showError(err.message);
+      document.getElementById('progressWrap').classList.remove('show');
+      btn.disabled = false;
+    }
+  }
+
+  function showResult(data) {
+    document.getElementById('origSize').textContent = formatSize(data.original_size);
+    document.getElementById('finalSize').textContent = formatSize(data.final_size);
+    const reduction = ((1 - data.final_size / data.original_size) * 100);
+    const badge = document.getElementById('reductionBadge');
+    if (reduction > 0) {
+      badge.textContent = `🎉 File size reduced by ${reduction.toFixed(1)}%`;
+    } else {
+      badge.textContent = `📦 Output size: ${formatSize(data.final_size)}`;
+    }
+    document.getElementById('resultFilename').textContent = data.filename;
+    document.getElementById('downloadBtn').href = data.download_url;
+    document.getElementById('downloadBtn').download = data.filename;
+    document.getElementById('resultCard').classList.add('show');
+  }
+
+  function showProgress(text, pct) {
+    document.getElementById('progressWrap').classList.add('show');
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressText').textContent = text;
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = '⚠️ ' + msg;
+    el.classList.add('show');
+  }
+  function hideError() { document.getElementById('errorMsg').classList.remove('show'); }
+
+  function resetAll() {
+    resetFile();
+    document.getElementById('resultCard').classList.remove('show');
+    document.getElementById('progressWrap').classList.remove('show');
+  }
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+</script>
+</body>
+</html>
